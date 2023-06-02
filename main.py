@@ -6,10 +6,10 @@ import urllib.parse
 from PIL import Image, ImageTk
 from io import BytesIO
 
-api_key = "yC6RPPdelro8/rD/GOXto0tDOCKxN0QuTH7b1025EtHOiP3Qxn3pOzk3i4zEHXlsjSimR11SNJtcqzOQAMHLIQ=="
-api_url = "http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytListInfoInqire"
+api_key = ""
+api_url = ""
 map_url = ""
-map_key = "AIzaSyDhuKHkeFO45QDBsc_IGMf-4hrCGlo7sTo"
+map_key = ""
 
 class MapViewer:
     def __init__(self, parent):
@@ -35,7 +35,7 @@ class MapViewer:
 
     def geocode_address(self, address):
         encoded_address = urllib.parse.quote(address)
-        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={encoded_address}&key=AIzaSyDhuKHkeFO45QDBsc_IGMf-4hrCGlo7sTo"
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={encoded_address}&key={map_key}"
         response = requests.get(url)
         data = response.json()
         if data["status"] == "OK":
@@ -63,7 +63,7 @@ class MapViewer:
             marker = f"{self.em_lat},{self.em_lng}"
             print("em_lat = ", self.em_lat, "em_lng = ", self.em_lng)
             map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={encoded_address}&" \
-                      f"zoom=14&size=600x400&markers=color:red%7Clabel:E%7C{marker}&key=AIzaSyDhuKHkeFO45QDBsc_IGMf-4hrCGlo7sTo"
+                      f"zoom=14&size=600x400&markers=color:red%7Clabel:E%7C{marker}&key={map_key}"
             response = requests.get(map_url)
             self.map_image = Image.open(BytesIO(response.content))
             self.show_map()
@@ -116,16 +116,17 @@ class MapViewer:
         dx = self.drag_data["x"] - address_x
         dy = self.drag_data["y"] - address_y
 
+        # 이동 방향에 따라 dx, dy 값을 조정합니다
         if self.drag_data["x"] < self.prev_x:
             dx = -dx
         if self.drag_data["y"] < self.prev_y:
             dy = -dy
 
-        print("dx = ", dx, "dy = ", dy)
         address_x += dx
         address_y += dy
         self.prev_x = self.drag_data["x"]
         self.prev_y = self.drag_data["y"]
+        print("dx = ", dx, "dy = ", dy)
         print("address_x = ", address_x, "address_y = ", address_y)
 
         self.lat += address_x * 0.00002
