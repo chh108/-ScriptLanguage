@@ -30,8 +30,8 @@ class MapViewer:
         self.lng = 0
         self.em_lat = 0  # 응급실 위도, 경도 저장
         self.em_lng = 0  # 응급실 위도, 경도 저장
-        self.prev_x = 0  # 마우스 좌표 계산
-        self.prev_y = 0  # 마우스 좌표 계산
+        self.start_x = 0  # 마우스 좌표 계산
+        self.start_y = 0  # 마우스 좌표 계산
 
     def geocode_address(self, address):
         encoded_address = urllib.parse.quote(address)
@@ -82,21 +82,17 @@ class MapViewer:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
         self.drag_data["item"] = self.canvas.find_closest(event.x, event.y)[0]
+        self.start_x = event.x
+        self.start_y = event.y
 
     def on_mouse_motion(self, event):
-        dx = event.x - self.drag_data["x"]
-        dy = event.y - self.drag_data["y"]
+        move_x = event.x - self.start_x
+        move_y = event.y - self.start_y
 
-        if event.x < self.prev_x:
-            dx = -dx
-
-        if event.y < self.prev_y:
-            dy = -dy
-        self.canvas.move(self.drag_data["item"], dx, dy)  # 응급실 아이템 이동
+        print(move_x, move_y)
+        self.canvas.move(self.drag_data["item"], move_x, move_y)  # 응급실 아이템 이동
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
-        self.prev_x = event.x
-        self.prev_y = event.y
 
         # 마우스 이동에 따라 새로운 주소를 계산하여 지도를 업데이트합니다.
         map_width, map_height = self.map_image.size
@@ -113,24 +109,14 @@ class MapViewer:
         self.load_map_image(address)
 
     def calculate_latlng(self, address_x, address_y):
-        dx = self.drag_data["x"] - address_x
-        dy = self.drag_data["y"] - address_y
+        move_x = self.start_x - self.drag_data["x"]
+        move_y = self.start_y - self.drag_data["y"]
+        address_x -= move_x
+        address_y += move_y
+        print("dx = ", move_x, "dy = ", move_y)
 
-        # 이동 방향에 따라 dx, dy 값을 조정합니다
-        if self.drag_data["x"] < self.prev_x:
-            dx = -dx
-        if self.drag_data["y"] < self.prev_y:
-            dy = -dy
-
-        address_x += dx
-        address_y += dy
-        self.prev_x = self.drag_data["x"]
-        self.prev_y = self.drag_data["y"]
-        print("dx = ", dx, "dy = ", dy)
-        print("address_x = ", address_x, "address_y = ", address_y)
-
-        self.lat += address_x * 0.00002
-        self.lng += address_y * 0.00002
+        self.lat += address_x * 0.00005
+        self.lng += address_y * 0.00005
         return self.lat, self.lng
 
     def on_mouse_release(self, event):
