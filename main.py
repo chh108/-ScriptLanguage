@@ -11,6 +11,7 @@ api_url = ""
 map_url = ""
 map_key = ""
 
+
 class MapViewer:
     def __init__(self, parent):
         self.parent = parent
@@ -20,6 +21,7 @@ class MapViewer:
         self.canvas.bind("<ButtonPress-1>", self.on_mouse_press)
         self.canvas.bind("<B1-Motion>", self.on_mouse_motion)
         self.canvas.bind("<ButtonRelease-1>", self.on_mouse_release)
+        self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
 
         self.image = None
         self.map_image = None
@@ -28,10 +30,13 @@ class MapViewer:
         self.current_address = ""
         self.lat = 0
         self.lng = 0
-        self.em_lat = 0  # 응급실 위도, 경도 저장
-        self.em_lng = 0  # 응급실 위도, 경도 저장
-        self.start_x = 0  # 마우스 좌표 계산
-        self.start_y = 0  # 마우스 좌표 계산
+        self.em_lat = 0
+        self.em_lng = 0
+        self.start_x = 0
+        self.start_y = 0
+        self.zoom_level = 0
+        self.marker_lat = 0
+        self.marker_lng = 0
 
     def geocode_address(self, address):
         encoded_address = urllib.parse.quote(address)
@@ -48,27 +53,21 @@ class MapViewer:
 
     def load_map_image(self, address):
         if address is None:
-            address = ""  # None인 경우 빈 문자열로 초기화
-        self.current_address = address  # 현재 주소 업데이트
-        encoded_address = urllib.parse.quote(address)
+            address = ""
+        self.current_address = address
         lat, lng = self.geocode_address(address)
         if lat is not None and lng is not None:
             self.lat = lat
             self.lng = lng
+            self.marker_lat = lat
+            self.marker_lng = lng
             if self.em_lat == 0 and self.em_lng == 0:
+                self.marker_lat = lat
+                self.marker_lng = lng
                 self.em_lat = lat
                 self.em_lng = lng
 
-            print("lat = ", self.lat, "lng = ", self.lng)
-            marker = f"{self.em_lat},{self.em_lng}"
-            print("em_lat = ", self.em_lat, "em_lng = ", self.em_lng)
-            map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={encoded_address}&" \
-                      f"zoom=14&size=600x400&markers=color:red%7Clabel:E%7C{marker}&key={map_key}"
-            response = requests.get(map_url)
-            self.map_image = Image.open(BytesIO(response.content))
-            self.show_map()
-        else:
-            print("Failed to geocode address:", address)
+            self.update_map()
 
     def show_map(self):
         self.canvas.delete("map_image")
@@ -77,6 +76,17 @@ class MapViewer:
             self.canvas.create_image(0, 0, anchor=tk.NW, image=self.image, tags="map_image")
             self.canvas.create_image(0, 0, anchor=tk.NW, image=self.image, tags="map_image")
             self.canvas.configure(scrollregion=self.canvas.bbox("map_image"))
+
+    def update_map(self):
+        # 확대/축소된 지도 이미지 URL을 생성합니다.
+        encoded_address = urllib.parse.quote(self.current_address)
+        marker = f"{self.marker_lat},{self.marker_lng}"
+        print(self.marker_lat, self.marker_lng)
+        map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={encoded_address}&" \
+                  f"zoom={14 + self.zoom_level}&size=600x400&markers=color:red%7Clabel:E%7C{marker}&key={map_key}"
+        response = requests.get(map_url)
+        self.map_image = Image.open(BytesIO(response.content))
+        self.show_map()
 
     def on_mouse_press(self, event):
         self.drag_data["x"] = event.x
@@ -89,8 +99,7 @@ class MapViewer:
         move_x = event.x - self.start_x
         move_y = event.y - self.start_y
 
-        print(move_x, move_y)
-        self.canvas.move(self.drag_data["item"], move_x, move_y)  # 응급실 아이템 이동
+        self.canvas.move(self.drag_data["item"], move_x, move_y)
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
@@ -104,7 +113,12 @@ class MapViewer:
         y_ratio = map_y / canvas_height
         address_x = x_ratio * map_width
         address_y = y_ratio * map_height
+
+
         center_lat, center_lng = self.calculate_latlng(address_x, address_y)
+        print("center_lat = ", center_lat, "center_lng", center_lng)
+        self.marker_lat = center_lat
+        self.marker_lng = center_lng
         address = f"{center_lat},{center_lng}"
         self.load_map_image(address)
 
@@ -124,8 +138,15 @@ class MapViewer:
         self.drag_data["y"] = 0
         self.drag_data["item"] = None
 
-        # 드래그가 종료되었을 때 새로운 주소를 받아와서 지도를 그립니다.
         self.load_map_image(self.current_address)
+
+    def on_mouse_wheel(self, event):
+        if event.delta > 0:
+            self.zoom_level += 1
+        else:
+            self.zoom_level -= 1
+
+        self.update_map()
 
 def get_emergency_rooms_data():
     params = {
