@@ -24,48 +24,40 @@ bot_token = ""
 
 bot = telepot.Bot(bot_token)
 
+def telegram_button_clicked(event=None):
+    os.system("C:/Telegram/Telegram.exe")
+    bot.message_loop(handle_message)
+
 def handle_message(msg):
     content_type, chat_type, chat_id = telepot.glance(msg)
 
     if content_type == 'text':
         command = msg['text']
-        if command == '/start':
-            bot.sendMessage(chat_id, "안녕하세요! 응급실 찾기 프로그램입니다.")
-        elif command == '/search':
-            bot.sendMessage(chat_id, "검색하고 싶은 내용을 입력해주세요(이름/지역)")
+        if command == '/help':
+            bot.sendMessage(chat_id, "안녕하세요! 응급실 찾기 프로그램입니다. /search 이름 으로 검색을 하실 수 있습니다.")
+        elif command.startswith('/search'):
             handle_search(chat_id, command)
 
-def telegram_button_clicked(event=None):
-    os.system("C:/Telegram/Telegram.exe")
-    bot.message_loop(handle_message)
-
 def handle_search(chat_id, command):
-    selected_region = ""
-    selected_name = ""
-    # 검색어를 지역과 이름으로 분리
-    keywords = command.split("/")
-    if len(keywords) == 2:
-        selected_region = keywords[0].strip()
-        selected_name = keywords[1].strip()
-    elif len(keywords) == 1:
-        selected_name = keywords[0].strip()
+    selected_name = command.replace('/search', '', 1).strip()
 
     emergency_rooms = get_emergency_rooms_data()
 
-    result = ""
+    results = []
     for room in emergency_rooms:
-        address = room.findtext("dutyAddr")
         name = room.findtext("dutyName")
 
-        if (not selected_region or address.startswith(selected_region)) and \
-                (not selected_name or selected_name.lower() in name.lower()):
+        if selected_name in name.lower():
+            address = room.findtext("dutyAddr")
             phone = room.findtext("dutyTel1")
-            result += f"이름: {name}\n주소: {address}\n전화번호: {phone}\n\n"
+            result = f"이름: {name}\n주소: {address}\n전화번호: {phone}"
+            results.append(result)
 
-    if result:
-        bot.sendMessage(chat_id, result)
+    if results:
+        message = "\n\n".join(results)
+        bot.sendMessage(chat_id, message)
     else:
-        bot.sendMessage(chat_id, "검색 결과가 없습니다.")
+        bot.sendMessage(chat_id, f"'{selected_name}'에 대한 검색 결과가 없습니다.")
 
 class MapViewer:
     def __init__(self, parent):
@@ -342,6 +334,15 @@ def show_location(address):
     global map_viewer
     map_viewer.load_map_image(address)
 
+def refresh(event = None):
+    region_combo.set("")  # 선택된 지역 초기화
+    gugun_combo.set("")  # 선택된 구/군 초기화
+    name_entry.delete(0, tk.END)  # 입력된 이름 초기화
+    result_text.delete(1.0, tk.END)  # 결과 텍스트 초기화
+    map_viewer.canvas.delete("map_image")
+    map_viewer.marker_lat = 0
+    map_viewer.marker_lng = 0
+
 # search_entry를 전역 변수로 선언하여 다른 함수에서도 사용할 수 있도록 함
 search_entry = None
 
@@ -501,7 +502,31 @@ tk_image = resize_image(image_path, target_width, target_height)
 
 image_label = tk.Label(window, image=tk_image)
 image_label.place(x = 800, y = 20)
+image_label.configure(bg="#b0e0e6")
 image_label.bind("<Button-1>", telegram_button_clicked)
+
+image_path_2 = "image/Title.png"
+
+target_width2 = 200
+target_height2 = 200
+
+tk_image2 = resize_image(image_path_2, target_width2, target_height2)
+
+image_label = tk.Label(window, image=tk_image2)
+image_label.place(x = 760, y = 560)
+image_label.configure(bg="#b0e0e6")
+
+image_path_3 = "image/reset.png"
+
+target_width3 = 60
+target_height3 = 60
+
+tk_image3 = resize_image(image_path_3, target_width3, target_height3)
+
+image_label = tk.Label(window, image=tk_image3)
+image_label.place(x = 210, y = 50)
+image_label.configure(bg="#b0e0e6")
+image_label.bind("<Button-1>", refresh)
 
 # 시/도 선택 시 구/군 목록 업데이트
 def update_gugun_options(event):
