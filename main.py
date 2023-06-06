@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from tkinter import ttk
 import requests
@@ -6,16 +7,65 @@ import urllib.parse
 from PIL import Image, ImageTk
 from io import BytesIO
 import matplotlib.pyplot as plt
-import spam
+import telepot
+from telepot.loop import MessageLoop
+
+#import spam
 
 api_key = ""
 api_url = ""
 map_url = ""
 map_key = ""
-tel_api = ""
+chat_id = ''
+bot_token = ""
 
 #print(spam)
 #print(spam.strlen("Spam Module Test"))
+
+bot = telepot.Bot(bot_token)
+
+def handle_message(msg):
+    content_type, chat_type, chat_id = telepot.glance(msg)
+
+    if content_type == 'text':
+        command = msg['text']
+        if command == '/start':
+            bot.sendMessage(chat_id, "안녕하세요! 응급실 찾기 프로그램입니다.")
+        elif command == '/search':
+            bot.sendMessage(chat_id, "검색하고 싶은 내용을 입력해주세요(이름/지역)")
+            handle_search(chat_id, command)
+
+def telegram_button_clicked(event=None):
+    os.system("C:/Telegram/Telegram.exe")
+    bot.message_loop(handle_message)
+
+def handle_search(chat_id, command):
+    selected_region = ""
+    selected_name = ""
+    # 검색어를 지역과 이름으로 분리
+    keywords = command.split("/")
+    if len(keywords) == 2:
+        selected_region = keywords[0].strip()
+        selected_name = keywords[1].strip()
+    elif len(keywords) == 1:
+        selected_name = keywords[0].strip()
+
+    emergency_rooms = get_emergency_rooms_data()
+
+    result = ""
+    for room in emergency_rooms:
+        address = room.findtext("dutyAddr")
+        name = room.findtext("dutyName")
+
+        if (not selected_region or address.startswith(selected_region)) and \
+                (not selected_name or selected_name.lower() in name.lower()):
+            phone = room.findtext("dutyTel1")
+            result += f"이름: {name}\n주소: {address}\n전화번호: {phone}\n\n"
+
+    if result:
+        bot.sendMessage(chat_id, result)
+    else:
+        bot.sendMessage(chat_id, "검색 결과가 없습니다.")
 
 class MapViewer:
     def __init__(self, parent):
@@ -62,6 +112,8 @@ class MapViewer:
         if lat is not None and lng is not None:
             self.lat = lat
             self.lng = lng
+            self.marker_lat = lat
+            self.marker_lng = lng
             if self.marker_lat == 0 and self.marker_lng == 0:
                 self.marker_lat = lat
                 self.marker_lng = lng
@@ -146,10 +198,6 @@ class MapViewer:
 
         self.update_map()
 
-def telegram_button_clicked(evenet):
-    print("텔레그램 봇 버튼 테스트")
-
-
 def resize_image(image_path, width, height):
     # 이미지 로드
     image = Image.open(image_path)
@@ -177,20 +225,6 @@ def get_emergency_rooms_data():
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
         return []
-
-def show_graph(hperyn_value, hpcuyn_value, hpgryn_value):
-    # 값이 None인 경우 0으로 대체하여 타입 오류 방지
-    values = [int(hperyn_value or 0), int(hpcuyn_value or 0), int(hpgryn_value or 0)]
-
-    # 막대 그래프를 생성하여 출력
-    categories = ['Emergency Rooms', 'Beds', 'inpatient room']
-
-    plt.bar(categories, values)
-    plt.xlabel('Types')
-    plt.ylabel('Nums')
-    plt.title('Current Situation')
-
-    plt.show()
 
 def search_emergency_rooms():
     selected_region = region_combo.get()
@@ -228,6 +262,12 @@ def search_emergency_rooms():
                 command=lambda h=hperyn_value, pc=hpbdn_value, pg=hpgryn_value: show_graph(h, pc, pg)
             )
             result_text.window_create(tk.END, window=graph_button)
+            tel_button = tk.Button(
+                window,
+                text="전송",
+                command=lambda r=room: send_emergency_rooms_to_telegram(r)
+            )
+            result_text.window_create(tk.END, window=tel_button)
             result_text.insert(tk.END, "\n")
             result_text.insert(tk.END, "\n----------------------\n")
 
@@ -262,8 +302,41 @@ def search_emergency_rooms():
                     command=lambda h=hperyn_value, pc=hpbdn_value, pg=hpgryn_value: show_graph(h, pc, pg)
                 )
                 result_text.window_create(tk.END, window=graph_button)
+                tel_button = tk.Button(
+                    window,
+                    text="전송",
+                    command=lambda r=room: send_emergency_rooms_to_telegram(r)
+                )
+                result_text.window_create(tk.END, window=tel_button)
                 result_text.insert(tk.END, "\n")
                 result_text.insert(tk.END, "\n----------------------\n")
+
+def send_emergency_rooms_to_telegram(room):
+
+    name = room.findtext("dutyName")
+    address = room.findtext("dutyAddr")
+    phone = room.findtext("dutyTel1")
+
+    message = f"이름: {name}\n주소: {address}\n전화번호: {phone}"
+
+    bot.sendMessage(chat_id, message)
+
+def show_graph(hperyn_value, hpcuyn_value, hpgryn_value):
+    # 값이 None인 경우 0으로 대체하여 타입 오류 방지
+    values = [int(hperyn_value or 0), int(hpcuyn_value or 0), int(hpgryn_value or 0)]
+
+    # 막대 그래프를 생성하여 출력
+    categories = ['Emergency Rooms', 'Beds', 'inpatient room']
+
+    plt.bar(categories, values)
+    plt.xlabel('Types')
+    plt.ylabel('Nums')
+    plt.title('Current Situation')
+
+    for i, value in enumerate(values):
+        plt.text(i, value, str(value), ha='center', va='bottom')
+
+    plt.show()
 
 def show_location(address):
     global map_viewer
