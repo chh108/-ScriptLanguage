@@ -5,12 +5,17 @@ import xml.etree.ElementTree as ET
 import urllib.parse
 from PIL import Image, ImageTk
 from io import BytesIO
+import matplotlib.pyplot as plt
+import spam
 
-api_key = ""
-api_url = ""
+api_key = "yC6RPPdelro8/rD/GOXto0tDOCKxN0QuTH7b1025EtHOiP3Qxn3pOzk3i4zEHXlsjSimR11SNJtcqzOQAMHLIQ=="
+api_url = "http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytBassInfoInqire"
 map_url = ""
-map_key = ""
+map_key = "AIzaSyDhuKHkeFO45QDBsc_IGMf-4hrCGlo7sTo"
 
+
+print(spam)
+print(spam.strlen("Spam Module Test"))
 
 class MapViewer:
     def __init__(self, parent):
@@ -30,8 +35,6 @@ class MapViewer:
         self.current_address = ""
         self.lat = 0
         self.lng = 0
-        self.em_lat = 0
-        self.em_lng = 0
         self.start_x = 0
         self.start_y = 0
         self.zoom_level = 0
@@ -59,13 +62,9 @@ class MapViewer:
         if lat is not None and lng is not None:
             self.lat = lat
             self.lng = lng
-            self.marker_lat = lat
-            self.marker_lng = lng
-            if self.em_lat == 0 and self.em_lng == 0:
+            if self.marker_lat == 0 and self.marker_lng == 0:
                 self.marker_lat = lat
                 self.marker_lng = lng
-                self.em_lat = lat
-                self.em_lng = lng
 
             self.update_map()
 
@@ -81,7 +80,7 @@ class MapViewer:
         # 확대/축소된 지도 이미지 URL을 생성합니다.
         encoded_address = urllib.parse.quote(self.current_address)
         marker = f"{self.marker_lat},{self.marker_lng}"
-        print(self.marker_lat, self.marker_lng)
+        print("maker_lat =", self.marker_lat, "market_lng =", self.marker_lng)
         map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={encoded_address}&" \
                   f"zoom={14 + self.zoom_level}&size=600x400&markers=color:red%7Clabel:E%7C{marker}&key={map_key}"
         response = requests.get(map_url)
@@ -116,9 +115,8 @@ class MapViewer:
 
 
         center_lat, center_lng = self.calculate_latlng(address_x, address_y)
-        print("center_lat = ", center_lat, "center_lng", center_lng)
-        self.marker_lat = center_lat
-        self.marker_lng = center_lng
+        print("center_lat =", center_lat, "center_lng =", center_lng)
+        print("maker_lat =", self.marker_lat, "market_lng =", self.marker_lng)
         address = f"{center_lat},{center_lng}"
         self.load_map_image(address)
 
@@ -148,6 +146,22 @@ class MapViewer:
 
         self.update_map()
 
+def telegram_button_clicked(evenet):
+    print("텔레그램 봇 버튼 테스트")
+
+
+def resize_image(image_path, width, height):
+    # 이미지 로드
+    image = Image.open(image_path)
+
+    # 이미지 크기 조정
+    resized_image = image.resize((width, height), Image.LANCZOS)
+
+    # Tkinter에서 사용할 수 있는 형식으로 변환
+    tk_image = ImageTk.PhotoImage(resized_image)
+
+    return tk_image
+
 def get_emergency_rooms_data():
     params = {
         "ServiceKey": api_key,
@@ -164,6 +178,19 @@ def get_emergency_rooms_data():
         print(f"Error: {e}")
         return []
 
+def show_graph(hperyn_value, hpcuyn_value, hpgryn_value):
+    # 값이 None인 경우 0으로 대체하여 타입 오류 방지
+    values = [int(hperyn_value or 0), int(hpcuyn_value or 0), int(hpgryn_value or 0)]
+
+    # 막대 그래프를 생성하여 출력
+    categories = ['Emergency Rooms', 'Beds', 'inpatient room']
+
+    plt.bar(categories, values)
+    plt.xlabel('Types')
+    plt.ylabel('Nums')
+    plt.title('Current Situation')
+
+    plt.show()
 
 def search_emergency_rooms():
     selected_region = region_combo.get()
@@ -179,6 +206,10 @@ def search_emergency_rooms():
             name = room.findtext("dutyName")
             address = room.findtext("dutyAddr")
             phone = room.findtext("dutyTel1")
+            hperyn_value = room.findtext("hperyn")
+            hpbdn_value = room.findtext("hpbdn")
+            hpgryn_value = room.findtext("hpgryn")
+
 
             result_text.insert(tk.END, "이름: {}\n".format(name))
             result_text.insert(tk.END, "주소: {}\n".format(address))
@@ -190,7 +221,16 @@ def search_emergency_rooms():
             )
             location_button.pack()
             result_text.window_create(tk.END, window=location_button)
+
+            graph_button = tk.Button(
+                window,
+                text="정보보기",
+                command=lambda h=hperyn_value, pc=hpbdn_value, pg=hpgryn_value: show_graph(h, pc, pg)
+            )
+            result_text.window_create(tk.END, window=graph_button)
+            result_text.insert(tk.END, "\n")
             result_text.insert(tk.END, "\n----------------------\n")
+
     else:
         # 선택된 지역 또는 이름이 있는 경우 해당 조건에 맞는 정보를 출력
         for room in emergency_rooms:
@@ -201,6 +241,9 @@ def search_emergency_rooms():
                     (not selected_gugun or address.startswith(f"{selected_region} {selected_gugun}")) and \
                     (not selected_name or selected_name.lower() in name.lower()):
                 phone = room.findtext("dutyTel1")
+                hperyn_value = room.findtext("hperyn")
+                hpbdn_value = room.findtext("hpbdn")
+                hpgryn_value = room.findtext("hpgryn")
 
                 result_text.insert(tk.END, "이름: {}\n".format(name))
                 result_text.insert(tk.END, "주소: {}\n".format(address))
@@ -212,6 +255,14 @@ def search_emergency_rooms():
                 )
                 location_button.pack()
                 result_text.window_create(tk.END, window=location_button)
+
+                graph_button = tk.Button(
+                    window,
+                    text="정보보기",
+                    command=lambda h=hperyn_value, pc=hpbdn_value, pg=hpgryn_value: show_graph(h, pc, pg)
+                )
+                result_text.window_create(tk.END, window=graph_button)
+                result_text.insert(tk.END, "\n")
                 result_text.insert(tk.END, "\n----------------------\n")
 
 def show_location(address):
@@ -364,6 +415,20 @@ result_text.configure(width = 40, height = 45)
 search_button = tk.Button(window, text="검색", command=search_emergency_rooms)
 search_button.place(x=140, y=95)
 search_button.configure(bg="white")
+
+frame = tk.Frame(window)
+frame.place(x=700, y=500)
+
+image_path = "image/tel.png"
+
+target_width = 90
+target_height = 90
+
+tk_image = resize_image(image_path, target_width, target_height)
+
+image_label = tk.Label(window, image=tk_image)
+image_label.place(x = 800, y = 20)
+image_label.bind("<Button-1>", telegram_button_clicked)
 
 # 시/도 선택 시 구/군 목록 업데이트
 def update_gugun_options(event):
