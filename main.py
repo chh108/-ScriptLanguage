@@ -8,14 +8,14 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import spam
 
-api_key = "yC6RPPdelro8/rD/GOXto0tDOCKxN0QuTH7b1025EtHOiP3Qxn3pOzk3i4zEHXlsjSimR11SNJtcqzOQAMHLIQ=="
-api_url = "http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytBassInfoInqire"
+api_key = ""
+api_url = ""
 map_url = ""
-map_key = "AIzaSyDhuKHkeFO45QDBsc_IGMf-4hrCGlo7sTo"
+map_key = ""
+tel_api = ""
 
-
-print(spam)
-print(spam.strlen("Spam Module Test"))
+#print(spam)
+#print(spam.strlen("Spam Module Test"))
 
 class MapViewer:
     def __init__(self, parent):
